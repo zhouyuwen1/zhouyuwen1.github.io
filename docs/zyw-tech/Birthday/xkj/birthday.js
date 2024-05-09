@@ -12,7 +12,7 @@ function initVars(){
 	cy=canvas.height/2;
 	playerZ=-25;
 	playerX=playerY=playerVX=playerVY=playerVZ=pitch=yaw=pitchV=yawV=0;
-	scale=600;
+	scale=1250;
 	seedTimer=0;seedInterval=5,seedLife=100;gravity=.02;
 	seeds=new Array();
 	sparkPics=new Array();
@@ -612,7 +612,7 @@ S.Dot = function (x, y) {
   this.e = 0.07;
   this.s = true;
 
-  this.c = new S.Color(25, 255, 255, this.p.a);
+  this.c = new S.Color(255, 255, 0, this.p.a);
 
   this.t = this.clone();
   this.q = [];

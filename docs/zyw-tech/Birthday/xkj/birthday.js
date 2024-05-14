@@ -12,7 +12,7 @@ function initVars(){
 	cy=canvas.height/2;
 	playerZ=-25;
 	playerX=playerY=playerVX=playerVY=playerVZ=pitch=yaw=pitchV=yawV=0;
-	scale=1250;
+	scale=600;
 	seedTimer=0;seedInterval=5,seedLife=100;gravity=.02;
 	seeds=new Array();
 	sparkPics=new Array();

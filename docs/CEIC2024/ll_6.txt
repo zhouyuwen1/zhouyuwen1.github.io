@@ -1,0 +1,97 @@
+import api
+import math
+import random
+
+def should_leave():
+    context = api.get_context()
+    me, exit_pos = context.me, context.exit
+    distance_to_exit = len(api.check.path(me, exit_pos))
+    return me.energy <= distance_to_exit + 1
+
+def update_context_record():
+    context = api.get_context()
+    round_num = context.round
+    item_counts = context.me.item_count.items()
+    item_counts = {k: v for k, v in item_counts if k != 'box'}
+    if item_counts:
+        least_count = min(item_counts.values())
+        least_items = [k for k, v in item_counts.items() if v == least_count]
+    else:
+        least_items = []
+    context.set('cc', least_items)
+    record = context.get('record') or {0: {}, 1: {}}
+    enemy = context.players.get(1)
+    if enemy:
+        record[round_num % 2]['enemy'] = enemy
+    record[round_num % 2]['me'] = context.me
+    context.set('record', record)
+
+def count_nearby_items(row, col):
+    items = api.get.items()
+    nearby_count = 0
+    for item in items:
+        if abs(item.row - row) < 3 and abs(item.col - col) < 3:
+            path_length = len(api.check.path((row, col), item, player_id=-1))
+            if path_length < 3:
+                nearby_count += 1
+    return nearby_count
+
+def simulate_box_reward():
+    return random.choice([-1, 1, 3, 5])
+
+def evaluate_item(item):
+    context = api.get_context()
+    me = context.me
+    factor = 1
+    item_distance = len(api.check.path(me, item))
+    nearby_count = count_nearby_items(item.row, item.col)
+    if nearby_count > 1:
+        factor *= nearby_count
+    all_items = context.get('cc')
+    is_in_set = item.name in all_items
+    if is_in_set:
+        factor *= 5 / len(all_items)
+    score = item.score if item.name != 'box' else simulate_box_reward()
+    factor += score / (item_distance + 1)
+    enemy = context.players.get(1)
+    if enemy:
+        enemy_distance = len(api.check.path(enemy, item, player_id=enemy.id))
+        record = context.get('record')
+        prev_enemy = record[(context.round + 1) % 2].get('enemy')
+        if enemy_distance < item_distance:
+            factor *= 0.5
+            if prev_enemy:
+                prev_enemy_distance = len(api.check.path(prev_enemy, item, player_id=enemy.id))
+                factor *= 2 if prev_enemy_distance < enemy_distance else 1
+        elif enemy_distance == item_distance:
+            factor *= 2 if me.order < enemy.order else 0.5
+        else:
+            if prev_enemy:
+                prev_enemy_distance = len(api.check.path(prev_enemy, item))
+                factor *= 1 if prev_enemy_distance < enemy_distance else 2
+    if item.name == 'box':
+        factor *= 3
+    round_num = context.round
+    if round_num < 10:#前10收集宝石
+        factor *= 1.2
+    elif round_num > 30:#后30终点
+        factor *= 0.8
+    
+    factor *= 16 / (item_distance ** 2)
+    return factor
+
+def find_best_item():
+    items = api.get.items()
+    item_estimations = [(evaluate_item(item), item) for item in items]
+    return max(item_estimations, key=lambda t: t[0])[1]
+
+def update(context):
+    update_context_record()
+    if should_leave():
+        exit_pos = context.exit
+        direction = api.check.next(exit_pos)
+    else:
+        best_item = find_best_item()
+        direction = api.check.next(best_item)
+    print(direction)
+    return direction

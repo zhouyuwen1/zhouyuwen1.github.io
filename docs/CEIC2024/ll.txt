@@ -1,0 +1,107 @@
+import api
+import math
+
+def ShouldLeave():
+    context = api.get_context()
+    me, exit = context.me, context.exit
+    dis = len(api.check.path(me, exit))
+    ret = (me.energy <= dis + 1)
+
+    return ret
+
+def temp():
+    context = api.get_context()
+    round = context.round
+    data = context.me.item_count.items()
+    data = {k:v for k, v in data if k != 'box'}
+    least = min(data.values())
+    ret = [k for k, v in data.items() if v == least]
+    context.set('cc', ret)
+    record = context.get('record')
+    if not record:
+        record = dict({0: {}, 1: {}})
+    enemy = context.players.get(1)
+    if enemy:
+        record[round % 2]['enemy'] = enemy
+    me = context.me
+    record[round % 2]['me'] = me
+    context.set('record', record)
+
+def Near(row, col):
+    items = api.get.items()
+    cnt = 0
+    for item in items:
+        if abs(item.row - row) <3:
+            if abs(item.col - col) <3:
+                start = (row, col)
+                l = len(api.check.path(start, item, player_id=-1))
+                if l < 3:
+                    cnt +=1
+
+    return cnt
+
+def Aew(item):
+    context = api.get_context()
+    me = context.me
+    fm = 1 
+    NCnt = Near(item.row, item.col)
+    if NCnt > 1:
+        fm *= NCnt
+    self_dis = len(api.check.path(me, item))
+    allOne = context.get('cc')
+    AOCnt = len(allOne)
+    TAO = item.name in allOne
+    if TAO:
+        fm *= (5 / AOCnt)
+    enemy = context.players.get(1)
+    if enemy:
+        enemy_score = enemy.score
+        enemy_dis = len(api.check.path(enemy, item,player_id=enemy.id))
+        record = context.get('record')
+        prev_enemy = record[(context.round + 1) %2].get('enemy')
+        if enemy_dis < self_dis:
+            fm *= 0.5
+            if prev_enemy:
+                prev_enemy_dis = len(api.check.path(prev_enemy, item,player_id=enemy.id))
+                if prev_enemy_dis < enemy_dis:
+                    fm *= 2
+                else:
+                    fm *= 1
+        elif enemy_dis == self_dis:
+            fm *= 2 if me.order < enemy.order else 0.5
+        else: 
+            if prev_enemy:
+                prev_enemy_dis = len(api.check.path(prev_enemy, item))
+                if prev_enemy_dis < enemy_dis:
+                    fm *= 1
+                else:
+
+                    fm *= 2
+    TB = item.name == 'box'
+    if TB:
+        fm *= 3
+    fm *= 16 / (math.pow(self_dis, 2))
+
+    return fm
+
+def find():
+    items = api.get.items()
+    estimate = lambda item: (Aew(item), item)
+    bestInfo = max([estimate(item) for item in items],key=lambda t: t[0])
+    bestValue, bestItem = bestInfo
+
+    return bestItem
+
+def update(context):
+    temp()
+    if ShouldLeave():
+        exit = context.exit
+        direct = api.check.next(exit)
+    else:
+        item = find()
+        direct = api.check.next(item)
+    print(direct)
+
+    return direct
+
+print("周裕文")

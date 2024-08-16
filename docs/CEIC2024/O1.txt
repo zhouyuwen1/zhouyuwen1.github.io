@@ -1,0 +1,100 @@
+import api
+import math
+
+def ShouldLeave():
+    context = api.get_context()
+    me, exit = context.me, context.exit
+    distance = len(api.check.path(me, exit))
+    ret = (me.energy <= distance + 1)
+    return ret
+
+def temp():
+    context = api.get_context()
+    round = context.round
+    data = context.me.item_count.items()
+    data = {k:v for k, v in data if k != 'box'}
+    least = min(data.values())
+    ret = [k for k, v in data.items() if v == least]
+    context.set('cc', ret)
+    record = context.get('record')
+    if not record:
+        record = dict({0: {}, 1: {}})
+    enemy = context.players.get(1)
+    if enemy:
+        record[round % 2]['enemy'] = enemy
+    me = context.me
+    record[round % 2]['me'] = me
+    context.set('record', record)
+
+def GetNearCount(row, col):
+    items = api.get.items()
+    count = 0
+    for item in items:
+        if abs(item.row - row) <3:
+            if abs(item.col - col) <3:
+                start = (row, col)
+                l = len(api.check.path(start, item, player_id=-1))
+                if l < 3:
+                    count +=1
+    return count
+
+def EMIV(item):
+    context = api.get_context()
+    me = context.me
+    Fml = 1#计算
+    NCnt = GetNearCount(item.row, item.col)
+    if NCnt > 1:
+        Fml *= NCnt
+    self_distance = len(api.check.path(me, item))
+    AO = context.get('cc')
+    AOCnt = len(AO)
+    BToAO = item.name in AO
+    if BToAO:
+        Fml *= (5 / AOCnt)
+    enemy = context.players.get(1)
+    if enemy:
+        enemy_score = enemy.score
+        enemy_distance = len(api.check.path(enemy, item,player_id=enemy.id))
+        record = context.get('record')
+        Pv_enemy = record[(context.round + 1) %2].get('enemy')
+        if enemy_distance < self_distance:
+            Fml *= 0.5
+            if Pv_enemy:
+                Pv_enemy_distance = len(api.check.path(Pv_enemy, item,player_id=enemy.id))
+                if Pv_enemy_distance < enemy_distance:
+                    Fml *= 2
+                else:
+                    Fml *= 1
+        elif enemy_distance == self_distance:
+            Fml *= 2 if me.order < enemy.order else 0.5
+        else:
+            if Pv_enemy:
+                Pv_enemy_distance = len(api.check.path(Pv_enemy, item))
+                if Pv_enemy_distance < enemy_distance:
+                    Fml *= 1
+                else:
+                    Fml *= 2
+    BToB = item.name == 'box'
+    if BToB:
+        Fml *= 3
+    Fml *= 16 / (math.pow(self_distance, 2))
+    return Fml
+
+def findBtVItem():
+    items = api.get.items()
+    EM = lambda item: (EMIV(item), item)
+    BtIn = max([EM(item) for item in items],key=lambda t: t[0])
+    BtV, BtIt = BtIn
+    return BtIt
+
+def update(context):
+    temp()
+    if ShouldLeave():
+        exit = context.exit
+        direct = api.check.next(exit)
+    else:
+        item = findBtVItem()
+        direct = api.check.next(item)
+    print(direct)
+    
+    return direct

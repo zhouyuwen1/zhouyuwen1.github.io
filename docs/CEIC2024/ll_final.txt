@@ -1,0 +1,112 @@
+import api#赛项提供的API库
+import math#数学基础库
+
+
+def ShouldLeave():#用于判断当前体力是否能够到达出口
+    ctt=api.get_context()
+    me=ctt.me#当前我的Player
+    exit=ctt.exit#出口数据
+    dis=len(api.check.path(me,exit))#从当前位置到达出口的路径长度
+    ret=(me.energy<=dis+1)#需要前往出口的bool
+
+    return ret
+
+
+def temp():
+    ctt=api.get_context()
+    round=ctt.round#当前的回合数
+    data=ctt.me.item_count.items()
+    data={_d:_g for _d,_g in data if _d!="box"}
+    Fn=min(data.values())
+    ret=[_d for _d,_g in data.items() if _g==Fn]
+    ctt.set("cc",ret)#最少的宝石
+    record=ctt.get("record")
+    if not record:
+        record=dict({0:{},1:{}})
+    Ey=ctt.players.get(1)#当前对手的Player
+    if Ey:
+        record[round % 2]["enemy"]=Ey
+    me=ctt.me#当前我的Player
+    record[round % 2]["me"]=me
+    ctt.set("record",record)
+
+
+def Near(row,col):
+    items=api.get.items()#物品的信息
+    cnt=0
+    for item in items:
+        if abs(item.row-row)<3:
+            if abs(item.col-col)<3:
+                start=(row,col)
+                l=len(api.check.path(start,item,player_id=-1))#到达该物品的路径长度
+                if l<3:#路径小于3
+                    cnt+=1
+
+    return cnt
+
+
+def Aew(item):
+    ctt=api.get_context()
+    me=ctt.me#当前我的Player
+    fm=1
+    NCnt=Near(item.row,item.col)
+    if NCnt>1:
+        fm*=NCnt
+    self_dis=len(api.check.path(me,item))#从当前位置到达该物品的路径长度
+    allOne=ctt.get("cc")#最少的宝石
+    AOCnt=len(allOne)
+    if item.name in allOne:#判断该物品在最少宝石中的bool
+        fm*=(5 / AOCnt)#如果在，调整
+    Ey=ctt.players.get(1)#当前对手的Player
+    if Ey:
+        Ey_score=Ey.score
+        Ey_dis=len(api.check.path(Ey,item,player_id=Ey.id))
+        record=ctt.get("record")
+        Pv_Ey=record[(ctt.round+1) %2].get("enemy")
+        if Ey_dis<self_dis:#根据对手影响进行调整
+            fm*=0.5
+            if Pv_Ey:
+                Pv_Ey_dis=len(api.check.path(Pv_Ey,item,player_id=Ey.id))
+                if Pv_Ey_dis<Ey_dis:
+                    fm*=2
+                else:
+                    fm*=1
+        elif Ey_dis==self_dis:
+            fm*=2 if me.order<Ey.order else 0.5
+        else: 
+            if Pv_Ey:
+                Pv_Ey_dis=len(api.check.path(Pv_Ey,item))
+                if Pv_Ey_dis<Ey_dis:
+                    fm*=1
+                else:
+
+                    fm*=2
+    TB=item.name=="box"#宝箱的特殊
+    if TB:
+        fm*=3#此处需注意2
+    fm*=16 / (math.pow(self_dis,2))
+
+    return fm
+
+
+def find():
+    items=api.get.items()#物品的信息
+    EM=lambda item: (Aew(item),item)#Aew评优
+    BtIn=max([EM(item) for item in items],key=lambda t: t[0])#选择优先物品
+    BtV,BtIt=BtIn
+
+    return BtIt
+
+
+def update(context):
+    temp()
+    if ShouldLeave():#如果需要前往出口，方向为前往出口
+        exit=context.exit
+        direct=api.check.next(exit)
+    else: #如果还不需要前往出口，方向为优先物品
+        item=find()
+        direct=api.check.next(item)
+    print(direct)#打印log信息
+
+    return direct
+print("周裕文")#选手姓名

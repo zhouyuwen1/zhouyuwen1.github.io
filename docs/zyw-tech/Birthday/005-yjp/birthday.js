@@ -612,7 +612,7 @@ S.Dot = function (x, y) {
   this.e = 0.07;
   this.s = true;
 
-  this.c = new S.Color(245, 255, 250, this.p.a);
+  this.c = new S.Color(0, 250, 154, this.p.a);
 
   this.t = this.clone();
   this.q = [];
